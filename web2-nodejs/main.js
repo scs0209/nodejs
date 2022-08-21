@@ -1,6 +1,7 @@
 var http = require('http');
 var fs = require('fs');
 var url = require('url');
+var qs = require('querystring');
 
 function templateHTML(title, list, body){
   return `
@@ -13,6 +14,7 @@ function templateHTML(title, list, body){
   <body>
     <h1><a href="/">WEB</a></h1>
     ${list}
+    <a href="/create">create</a>
     ${body}
   </body>
   </html>
@@ -59,6 +61,42 @@ var app = http.createServer(function(request,response){
           });
         });
       }
+    } else if(pathname === '/create'){
+      fs.readdir('./data', function(err, filelist){
+            var title = 'Web - create';
+            var list = templateList(filelist); //매개변수 filelist는 data폴더에 있는 file의 list를 가르킨다
+            var template = templateHTML(title, list, `
+            <form action="http://localhost:4000/create_process" method="post">
+                <p><input type="text" name="title" placeholder="title"></p>
+                <p>
+                    <textarea name="description" placeholder="description"></textarea>
+                </p>
+                <p>
+                    <input type="submit">
+                </p>
+            </form>
+            `);
+            response.writeHead(200);
+            response.end(template);
+          })
+    } else if (pathname === '/create_process') {
+      var body = '';
+      //웹 브라우저가 호스트 방식으로 데이터를 전송할 때 데이터가 엄청나게 많으면 그 데이터를 한번에 처리하다가는 프로그램이 꺼진다거나 무리가 가는데 그래서 node.js에서는 post방식으로 전송되는 데이터가 많을 경우에 대비해서 아래의 코드를 제공하고 있는데 data 원소는 특정한 양(100이 있으면 그 중에서 조각조각을 서버에서 수신할 때 마다 서버는 이 콜백 함수를 호출하도록 약속하고 있다. 그리고 그걸  호출할 때 데이터라는 인자를 통해서 수신한 정보를 주기로 약속하고 있다.)
+      request.on('data', function(data){
+        body = body + data;
+      });
+      request.on('end', function(){
+        var post = qs.parse(body);
+        var title = post.title;
+        var description = post.description;
+        fs.writeFile(`data/${title}`, description, 'utf8', function(err){
+            //200은 성공했다는 뜻이고
+            //302는 다른 곳에서 redirect를 하라는 뜻이다.
+          response.writeHead(302, {Location: `/?id=${title}`});
+          response.end();
+        })
+      });
+
     } else {
       response.writeHead(404);
       response.end('Not found');
