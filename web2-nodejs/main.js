@@ -2,35 +2,9 @@ var http = require('http');
 var fs = require('fs');
 var url = require('url');
 var qs = require('querystring');
-//refactoring 한 것
-var template = {
-  html: function (title, list, body, control){
-    return `
-    <!doctype html>
-    <html>
-    <head>
-      <title>WEB1 - ${title}</title>
-      <meta charset="utf-8">
-    </head>
-    <body>
-      <h1><a href="/">WEB</a></h1>
-      ${list}
-      ${control}
-      ${body}
-    </body>
-    </html>
-    `;
-  }, list: function(filelist){
-    var list = '<ul>';
-    var i = 0;
-    while(i < filelist.length){
-      list = list + `<li><a href="/?id=${filelist[i]}">${filelist[i]}</a></li>`;
-      i = i + 1;
-    }
-    list = list + '</ul>';
-    return list;
-  }
-}
+//모듈화 시켜서 리팩토링함
+var template = require('./lib/template.js')
+var path = require('path');
 
 
 var app = http.createServer(function(request,response){
@@ -58,7 +32,9 @@ var app = http.createServer(function(request,response){
           });
       } else {
         fs.readdir('./data', function(err, filelist){
-          fs.readFile(`data/${queryData.id}`, 'utf-8', function(err, description){
+          //var filteredId 부분을 사용한느 이유는 클라이언트가 data 디렉토리 내의 파일만 볼 수 있도록 하기 위함이다.
+          var filteredId = path.parse(queryData.id).base;
+          fs.readFile(`data/${filteredId}`, 'utf-8', function(err, description){
             var title = queryData.id;
             var list = template.list(filelist);
             var html = template.html(title, list, 
@@ -116,7 +92,8 @@ var app = http.createServer(function(request,response){
 //update 버튼
     } else if(pathname === '/update') {
       fs.readdir('./data', function(err, filelist){
-          fs.readFile(`data/${queryData.id}`, 'utf-8', function(err, description){
+          var filteredId = path.parse(queryData.id).base;
+          fs.readFile(`data/${filteredId}`, 'utf-8', function(err, description){
             var title = queryData.id;
             var list = template.list(filelist);
             var html = template.html(title, list, 
@@ -167,7 +144,8 @@ var app = http.createServer(function(request,response){
       request.on('end', function(){
         var post = qs.parse(body);
         var id = post.id;
-        fs.unlink(`data/${id}`, function(err){
+        var filteredId = path.parse(id).base;
+        fs.unlink(`data/${filteredId}`, function(err){
           response.writeHead(302, {Location: `/`});
           response.end();  
         })
